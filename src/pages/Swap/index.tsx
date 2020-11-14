@@ -1,4 +1,4 @@
-import { CurrencyAmount, JSBI, Token, Trade } from '@uniswap/sdk'
+import { CurrencyAmount, JSBI, Token, Trade } from 'sdk'
 import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { ArrowDown } from 'react-feather'
 import ReactGA from 'react-ga'
@@ -44,6 +44,17 @@ import { computeTradePriceBreakdown, warningSeverity } from '../../utils/prices'
 import AppBody from '../AppBody'
 import { ClickableText } from '../Pool/styleds'
 import Loader from '../../components/Loader'
+import { getShuttleContract } from '../../utils'
+import _Big from 'big.js'
+import Web3 from 'web3'
+interface PoolInfo {
+  balance: string,
+  numTraders: number,
+  gasSaving: string
+  gasSavingUnits: number,
+  executing?: string
+}
+
 
 export default function Swap() {
   const loadedUrlParams = useDefaultsFromURLSearch()
@@ -53,6 +64,10 @@ export default function Swap() {
     useCurrency(loadedUrlParams?.inputCurrencyId),
     useCurrency(loadedUrlParams?.outputCurrencyId)
   ]
+
+  // @ts-ignore: Unreachable code error
+  const [poolInfo, setPoolInfo] = useState<PoolInfo | null>(null)
+
   const [dismissTokenWarning, setDismissTokenWarning] = useState<boolean>(false)
   const urlLoadedTokens: Token[] = useMemo(
     () => [loadedInputCurrency, loadedOutputCurrency]?.filter((c): c is Token => c instanceof Token) ?? [],
@@ -62,7 +77,7 @@ export default function Swap() {
     setDismissTokenWarning(true)
   }, [])
 
-  const { account } = useActiveWeb3React()
+  const { account, chainId, library } = useActiveWeb3React()
   const theme = useContext(ThemeContext)
 
   // toggle wallet when disconnected
@@ -104,18 +119,18 @@ export default function Swap() {
     toggledVersion === Version.v2 && isTradeBetter(v2Trade, v1Trade, BETTER_TRADE_LINK_THRESHOLD)
       ? Version.v1
       : toggledVersion === Version.v1 && isTradeBetter(v1Trade, v2Trade)
-      ? Version.v2
-      : undefined
+        ? Version.v2
+        : undefined
 
   const parsedAmounts = showWrap
     ? {
-        [Field.INPUT]: parsedAmount,
-        [Field.OUTPUT]: parsedAmount
-      }
+      [Field.INPUT]: parsedAmount,
+      [Field.OUTPUT]: parsedAmount
+    }
     : {
-        [Field.INPUT]: independentField === Field.INPUT ? parsedAmount : trade?.inputAmount,
-        [Field.OUTPUT]: independentField === Field.OUTPUT ? parsedAmount : trade?.outputAmount
-      }
+      [Field.INPUT]: independentField === Field.INPUT ? parsedAmount : trade?.inputAmount,
+      [Field.OUTPUT]: independentField === Field.OUTPUT ? parsedAmount : trade?.outputAmount
+    }
 
   const { onSwitchTokens, onCurrencySelection, onUserInput, onChangeRecipient } = useSwapActionHandlers()
   const isValid = !swapInputError
@@ -133,6 +148,87 @@ export default function Swap() {
     },
     [onUserInput]
   )
+
+
+  useEffect(() => {
+    async function helper() {
+      if (chainId && library && account) {
+        const shuttleContract = getShuttleContract(chainId, library, account)
+        const _gasTotalList = [101152, 71202, 71202, 71202, 86152, 71202, 71202]
+        const _originalTotal = 110216
+
+        shuttleContract.getPoolInfo().then((rv: any) => {
+          const _gasTotal = _gasTotalList[rv[1].toNumber()]
+          setPoolInfo({
+            balance: CurrencyAmount.ether(rv[0]).toSignificant(3),
+            numTraders: rv[1].toNumber(),
+            gasSaving: ((_originalTotal - _gasTotal) * 100.0 / _originalTotal).toPrecision(2),
+            gasSavingUnits: _originalTotal - _gasTotal,
+            executing: undefined
+          })
+        })
+      }
+    }
+    helper()
+  }, [chainId, library, account])
+
+  useEffect(() => {
+    function getExeArg(num: number, isFarming: number = 0) {
+      const web3 = new Web3()
+      const amount = web3.utils.toWei('0.1', 'ether')
+      let bytes = '0x'
+
+      // 1 byte for numTrader
+      bytes = bytes + web3.utils.padLeft(web3.utils.toHex(num), 2).slice(2)
+
+      // 20 bytes for token addr, path ETH -> DAI
+      bytes = bytes + 'c778417E063141139Fce010982780140Aa0cD5Ab' + 'c7AD46e0b8a400Bb3C915120d284AafbA8fc4735'
+
+      // 2 bytes for gasPrice (in unit gwei)
+      bytes = bytes + web3.utils.padLeft(web3.utils.toHex(1000), 4).slice(2)
+
+      for (let i = 0; i < num; i++) {
+        // 1 byte for farming
+        bytes = bytes + web3.utils.padLeft(web3.utils.toHex(isFarming), 2).slice(2)
+      }
+
+      for (let i = 0; i < num; i++) {
+        bytes = bytes + 'D3cEd3b16C8977ED0E345D162D982B899e978588'
+      }
+
+      for (let i = 0; i < num; i++) {
+        // 32 bytes for value
+        bytes = bytes + web3.utils.padLeft(web3.utils.toHex(amount), 64).slice(2)
+      }
+      console.log(bytes)
+      return bytes
+    }
+
+    async function helper() {
+      if (chainId && library && account) {
+        if (poolInfo && poolInfo.numTraders === 3 && poolInfo.executing === undefined) {
+          // execute!
+          const shuttleContract = getShuttleContract(chainId, library, account)
+          const arg = getExeArg(poolInfo.numTraders)
+          /* const rr = await shuttleContract.callStatic.parseTraderData(arg)
+          console.log(rr) */
+          setPoolInfo({
+            ...poolInfo,
+            executing: 'Executing...'
+          })
+          
+          const tx = await shuttleContract.execute(arg)
+          const receipt = await tx.wait()
+          console.log(receipt)
+          setPoolInfo({
+            ...poolInfo,
+            executing: 'Executed successfully'
+          })
+        }
+      }
+    }
+    helper()
+  }, [poolInfo])
 
   // modal and loading
   const [{ showConfirm, tradeToConfirm, swapErrorMessage, attemptingTxn, txHash }, setSwapState] = useState<{
@@ -201,8 +297,8 @@ export default function Swap() {
             recipient === null
               ? 'Swap w/o Send'
               : (recipientAddress ?? recipient) === account
-              ? 'Swap w/o Send + recipient'
-              : 'Swap w/ Send',
+                ? 'Swap w/o Send + recipient'
+                : 'Swap w/ Send',
           label: [
             trade?.inputAmount?.currency?.symbol,
             trade?.outputAmount?.currency?.symbol,
@@ -348,16 +444,38 @@ export default function Swap() {
               <Card padding={'.25rem .75rem 0 .75rem'} borderRadius={'20px'}>
                 <AutoColumn gap="4px">
                   {Boolean(trade) && (
-                    <RowBetween align="center">
-                      <Text fontWeight={500} fontSize={14} color={theme.text2}>
-                        Price
+                    <>
+                      <RowBetween align="center">
+                        <Text fontWeight={500} fontSize={14} color={theme.text2}>
+                          Price
                       </Text>
-                      <TradePrice
-                        price={trade?.executionPrice}
-                        showInverted={showInverted}
-                        setShowInverted={setShowInverted}
-                      />
-                    </RowBetween>
+                        <TradePrice
+                          price={trade?.executionPrice}
+                          showInverted={showInverted}
+                          setShowInverted={setShowInverted}
+                        />
+                      </RowBetween>
+                      {poolInfo &&
+                        <>
+                          <RowBetween align="center">
+                            <Text fontWeight={500} fontSize={14} color={theme.text2}>
+                              Shuttle Balance:
+                        </Text>
+                            <Text fontWeight={500} fontSize={14} color={theme.text2}>
+                              {poolInfo.balance} ETH ({poolInfo.numTraders} traders)
+                        </Text>
+                          </RowBetween>
+                          <RowBetween align="center">
+                            <Text fontWeight={500} fontSize={14} color={theme.text2}>
+                              Gas Saved:
+                        </Text>
+                            <Text fontWeight={500} fontSize={14} color={theme.text2}>
+                              -{poolInfo.gasSaving}% ({poolInfo.gasSavingUnits} units)
+                        </Text>
+                          </RowBetween>
+                        </>
+                      }
+                    </>
                   )}
                   {allowedSlippage !== INITIAL_ALLOWED_SLIPPAGE && (
                     <RowBetween align="center">
@@ -401,8 +519,8 @@ export default function Swap() {
                   ) : approvalSubmitted && approval === ApprovalState.APPROVED ? (
                     'Approved'
                   ) : (
-                    'Approve ' + currencies[Field.INPUT]?.symbol
-                  )}
+                        'Approve ' + currencies[Field.INPUT]?.symbol
+                      )}
                 </ButtonConfirmed>
                 <ButtonError
                   onClick={() => {
@@ -432,34 +550,37 @@ export default function Swap() {
                   </Text>
                 </ButtonError>
               </RowBetween>
-            ) : (
-              <ButtonError
-                onClick={() => {
-                  if (isExpertMode) {
-                    handleSwap()
-                  } else {
-                    setSwapState({
-                      tradeToConfirm: trade,
-                      attemptingTxn: false,
-                      swapErrorMessage: undefined,
-                      showConfirm: true,
-                      txHash: undefined
-                    })
-                  }
-                }}
-                id="swap-button"
-                disabled={!isValid || (priceImpactSeverity > 3 && !isExpertMode) || !!swapCallbackError}
-                error={isValid && priceImpactSeverity > 2 && !swapCallbackError}
-              >
-                <Text fontSize={20} fontWeight={500}>
-                  {swapInputError
-                    ? swapInputError
-                    : priceImpactSeverity > 3 && !isExpertMode
-                    ? `Price Impact Too High`
-                    : `Swap${priceImpactSeverity > 2 ? ' Anyway' : ''}`}
-                </Text>
-              </ButtonError>
-            )}
+            ) : (   
+              <>  
+              {poolInfo && poolInfo.executing && <ButtonPrimary> <Text fontSize={20} fontWeight={500}> { poolInfo.executing } </Text> </ButtonPrimary>}
+                      <ButtonError
+                        onClick={() => {
+                          if (isExpertMode) {
+                            handleSwap()
+                          } else {
+                            setSwapState({
+                              tradeToConfirm: trade,
+                              attemptingTxn: false,
+                              swapErrorMessage: undefined,
+                              showConfirm: true,
+                              txHash: undefined
+                            })
+                          }
+                        }}
+                        id="swap-button"
+                        disabled={!isValid || (priceImpactSeverity > 3 && !isExpertMode) || !!swapCallbackError}
+                        error={isValid && priceImpactSeverity > 2 && !swapCallbackError}
+                      >
+                        <Text fontSize={20} fontWeight={500}>
+                          {swapInputError
+                            ? swapInputError
+                            : priceImpactSeverity > 3 && !isExpertMode
+                              ? `Price Impact Too High`
+                              : `Swap${priceImpactSeverity > 2 ? ' Anyway' : ''}`}
+                        </Text>
+                      </ButtonError>
+                      </>
+                    )}
             {showApproveFlow && (
               <Column style={{ marginTop: '1rem' }}>
                 <ProgressSteps steps={[approval === ApprovalState.APPROVED]} />
