@@ -22,7 +22,14 @@ const InfoLink = styled(ExternalLink)`
   color: ${({ theme }) => theme.text1};
 `
 
-function TradeSummary({ trade, allowedSlippage }: { trade: Trade; allowedSlippage: number }) {
+function TradeSummary({ trade, poolInfo, allowedSlippage }: { trade: Trade; poolInfo: {
+  balance: string,
+  numTraders: number,
+  gasSaving: string
+  gasSavingUnits: number,
+  executing?: string,
+  txHash?: string
+} | null; allowedSlippage: number }) {
   const theme = useContext(ThemeContext)
   const { priceImpactWithoutFee, realizedLPFee } = computeTradePriceBreakdown(trade)
   const isExactIn = trade.tradeType === TradeType.EXACT_INPUT
@@ -31,6 +38,35 @@ function TradeSummary({ trade, allowedSlippage }: { trade: Trade; allowedSlippag
   return (
     <>
       <AutoColumn style={{ padding: '0 20px' }}>
+      {poolInfo &&
+          <RowBetween>
+            <RowFixed>
+              <TYPE.black fontSize={14} fontWeight={400} color={theme.text2}>
+                Shuttle Balance
+              </TYPE.black>
+            </RowFixed>
+            <RowFixed>
+              <TYPE.black fontSize={14}>
+                {poolInfo.balance} ETH ({poolInfo.numTraders} traders)
+              </TYPE.black>
+            </RowFixed>
+          </RowBetween> 
+        }
+
+{poolInfo &&
+          <RowBetween style={{marginBottom: '15px'}}>
+            <RowFixed>
+              <TYPE.black fontSize={14} fontWeight={400} color={theme.text2}>
+                Gas Saved
+              </TYPE.black>
+            </RowFixed>
+            <RowFixed>
+              <TYPE.black fontSize={14}>
+                {poolInfo.gasSaving}% ({poolInfo.gasSavingUnits} units)
+              </TYPE.black>
+            </RowFixed>
+          </RowBetween> 
+        }
         <RowBetween>
           <RowFixed>
             <TYPE.black fontSize={14} fontWeight={400} color={theme.text2}>
@@ -75,10 +111,18 @@ function TradeSummary({ trade, allowedSlippage }: { trade: Trade; allowedSlippag
 }
 
 export interface AdvancedSwapDetailsProps {
-  trade?: Trade
+  trade?: Trade,
+  poolInfo: {
+    balance: string,
+    numTraders: number,
+    gasSaving: string
+    gasSavingUnits: number,
+    executing?: string,
+    txHash?: string
+  } | null
 }
 
-export function AdvancedSwapDetails({ trade }: AdvancedSwapDetailsProps) {
+export function AdvancedSwapDetails({ trade, poolInfo }: AdvancedSwapDetailsProps) {
   const theme = useContext(ThemeContext)
 
   const [allowedSlippage] = useUserSlippageTolerance()
@@ -89,7 +133,7 @@ export function AdvancedSwapDetails({ trade }: AdvancedSwapDetailsProps) {
     <AutoColumn gap="md">
       {trade && (
         <>
-          <TradeSummary trade={trade} allowedSlippage={allowedSlippage} />
+          <TradeSummary trade={trade} poolInfo={poolInfo} allowedSlippage={allowedSlippage} />
           {showRoute && (
             <>
               <SectionBreak />

@@ -103,7 +103,7 @@ export function getRouterContract(_: number, library: Web3Provider, account?: st
   return getContract(ROUTER_ADDRESS, IUniswapV2Router02ABI, library, account)
 }
 
-export function getShuttleContract(_: number, library: Web3Provider, account?: string): Contract {
+export function getShuttleContract(_: number, library: Web3Provider | any, account?: string): Contract {
   return getContract(networks['4']['address'], ShuttleABI, library, account)
 }
 

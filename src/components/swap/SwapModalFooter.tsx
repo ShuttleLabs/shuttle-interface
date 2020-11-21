@@ -23,13 +23,22 @@ export default function SwapModalFooter({
   onConfirm,
   allowedSlippage,
   swapErrorMessage,
-  disabledConfirm
+  disabledConfirm,
+  poolInfo
 }: {
   trade: Trade
   allowedSlippage: number
   onConfirm: () => void
   swapErrorMessage: string | undefined
   disabledConfirm: boolean
+  poolInfo: {
+    balance: string,
+    numTraders: number,
+    gasSaving: string
+    gasSavingUnits: number,
+    executing?: string,
+    txHash?: string
+  } | null
 }) {
   const [showInverted, setShowInverted] = useState<boolean>(false)
   const theme = useContext(ThemeContext)
@@ -65,6 +74,36 @@ export default function SwapModalFooter({
             </StyledBalanceMaxMini>
           </Text>
         </RowBetween>
+        {poolInfo &&
+          <RowBetween>
+            <RowFixed>
+              <TYPE.black fontSize={14} fontWeight={400} color={theme.text2}>
+                Shuttle Balance
+              </TYPE.black>
+            </RowFixed>
+            <RowFixed>
+              <TYPE.black fontSize={14}>
+                {poolInfo.balance} ETH ({poolInfo.numTraders} traders)
+              </TYPE.black>
+            </RowFixed>
+          </RowBetween> 
+        }
+
+{poolInfo &&
+          <RowBetween style={{marginBottom: '15px'}}>
+            <RowFixed>
+              <TYPE.black fontSize={14} fontWeight={400} color={theme.text2}>
+                Gas Saved
+              </TYPE.black>
+            </RowFixed>
+            <RowFixed>
+              <TYPE.black fontSize={14}>
+                {poolInfo.gasSaving}% ({poolInfo.gasSavingUnits} units)
+              </TYPE.black>
+            </RowFixed>
+          </RowBetween> 
+        }
+
 
         <RowBetween>
           <RowFixed>

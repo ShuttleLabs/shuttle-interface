@@ -33,7 +33,8 @@ export default function ConfirmSwapModal({
   swapErrorMessage,
   isOpen,
   attemptingTxn,
-  txHash
+  txHash,
+  poolInfo
 }: {
   isOpen: boolean
   trade: Trade | undefined
@@ -46,6 +47,14 @@ export default function ConfirmSwapModal({
   onConfirm: () => void
   swapErrorMessage: string | undefined
   onDismiss: () => void
+  poolInfo: {
+    balance: string,
+    numTraders: number,
+    gasSaving: string
+    gasSavingUnits: number,
+    executing?: string,
+    txHash?: string
+  } | null
 }) {
   const showAcceptChanges = useMemo(
     () => Boolean(trade && originalTrade && tradeMeaningfullyDiffers(trade, originalTrade)),
@@ -72,6 +81,7 @@ export default function ConfirmSwapModal({
         disabledConfirm={showAcceptChanges}
         swapErrorMessage={swapErrorMessage}
         allowedSlippage={allowedSlippage}
+        poolInfo={poolInfo}
       />
     ) : null
   }, [allowedSlippage, onConfirm, showAcceptChanges, swapErrorMessage, trade])

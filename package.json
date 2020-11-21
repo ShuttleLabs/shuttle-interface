@@ -121,6 +121,8 @@
   "dependencies": {
     "@types/big.js": "^6.0.0",
     "@types/web3": "^1.2.2",
-    "big.js": "^6.0.2"
+    "big.js": "^6.0.2",
+    "react-countdown": "^2.3.1",
+    "truffle-privatekey-provider": "^1.5.0"
   }
 }

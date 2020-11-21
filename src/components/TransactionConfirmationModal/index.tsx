@@ -31,7 +31,19 @@ const ConfirmedIcon = styled(ColumnCenter)`
   padding: 60px 0;
 `
 
-function ConfirmationPendingContent({ onDismiss, pendingText }: { onDismiss: () => void; pendingText: string }) {
+interface PoolInfo {
+  balance: string,
+  numTraders: number,
+  gasSaving: string
+  totalGasSavingUnits: string,
+  gasSavingUnits: number,
+  executing?: string,
+  txHash?: string,
+  departTime: string
+}
+
+
+function ConfirmationPendingContent({ poolInfo, onDismiss, pendingText }: { poolInfo?: PoolInfo | null; onDismiss: () => void; pendingText: string }) {
   return (
     <Wrapper>
       <Section>
@@ -52,7 +64,7 @@ function ConfirmationPendingContent({ onDismiss, pendingText }: { onDismiss: () 
             </Text>
           </AutoColumn>
           <Text fontSize={12} color="#565A69" textAlign="center">
-            Confirm this transaction in your wallet
+            {!poolInfo ? 'Confirm this transaction in your wallet' :'Shuttle has departed.'}
           </Text>
         </AutoColumn>
       </Section>
@@ -61,10 +73,12 @@ function ConfirmationPendingContent({ onDismiss, pendingText }: { onDismiss: () 
 }
 
 function TransactionSubmittedContent({
+  poolInfo,
   onDismiss,
   chainId,
   hash
 }: {
+  poolInfo?: PoolInfo | null
   onDismiss: () => void
   hash: string | undefined
   chainId: ChainId
@@ -83,8 +97,13 @@ function TransactionSubmittedContent({
         </ConfirmedIcon>
         <AutoColumn gap="12px" justify={'center'}>
           <Text fontWeight={500} fontSize={20}>
-            Transaction Submitted
+            {!poolInfo ? 'Transaction Submitted' : 'Swap Confirmed!'}
           </Text>
+          {!!poolInfo &&
+            <Text fontWeight={500} fontSize={20}>
+              Shuttle saved {poolInfo.totalGasSavingUnits}
+            </Text>
+          }
           {chainId && hash && (
             <ExternalLink href={getEtherscanLink(chainId, hash, 'transaction')}>
               <Text fontWeight={500} fontSize={14} color={theme.primary1}>
@@ -156,6 +175,7 @@ export function TransactionErrorContent({ message, onDismiss }: { message: strin
 }
 
 interface ConfirmationModalProps {
+  poolInfo?: PoolInfo | null
   isOpen: boolean
   onDismiss: () => void
   hash: string | undefined
@@ -165,6 +185,7 @@ interface ConfirmationModalProps {
 }
 
 export default function TransactionConfirmationModal({
+  poolInfo,
   isOpen,
   onDismiss,
   attemptingTxn,
@@ -180,11 +201,11 @@ export default function TransactionConfirmationModal({
   return (
     <Modal isOpen={isOpen} onDismiss={onDismiss} maxHeight={90}>
       {attemptingTxn ? (
-        <ConfirmationPendingContent onDismiss={onDismiss} pendingText={pendingText} />
+        <ConfirmationPendingContent poolInfo={poolInfo} onDismiss={onDismiss} pendingText={pendingText} />
       ) : hash ? (
-        <TransactionSubmittedContent chainId={chainId} hash={hash} onDismiss={onDismiss} />
+        <TransactionSubmittedContent poolInfo={poolInfo} chainId={chainId} hash={hash} onDismiss={onDismiss} />
       ) : (
-        content()
+        !poolInfo && content()
       )}
     </Modal>
   )

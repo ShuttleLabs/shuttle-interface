@@ -47,12 +47,18 @@ import Loader from '../../components/Loader'
 import { getShuttleContract } from '../../utils'
 import _Big from 'big.js'
 import Web3 from 'web3'
+import { ethers } from 'ethers'
+import TransactionConfirmationModal from '../../components/TransactionConfirmationModal'
+import Countdown from 'react-countdown'
 interface PoolInfo {
   balance: string,
   numTraders: number,
   gasSaving: string
+  totalGasSavingUnits: string,
   gasSavingUnits: number,
-  executing?: string
+  executing?: string,
+  txHash?: string,
+  departTime: string
 }
 
 
@@ -154,19 +160,36 @@ export default function Swap() {
     async function helper() {
       if (chainId && library && account) {
         const shuttleContract = getShuttleContract(chainId, library, account)
-        const _gasTotalList = [101152, 71202, 71202, 71202, 86152, 71202, 71202]
+        const _gasDeposit = [64964, 35014, 35014, 35014, 49964, 35014, 35014, 35014]
+        const _gasTotalList = [101152, 158412, 177265, 195982, 204748, 223604, 242321]
         const _originalTotal = 110216
 
         shuttleContract.getPoolInfo().then((rv: any) => {
-          const _gasTotal = _gasTotalList[rv[1].toNumber()]
+          // set countdown stuff
+          let departTime = window.localStorage.getItem('departTime')
+          if(!departTime) {
+            departTime = (Date.now() + 1000 * 1000).toString()
+            window.localStorage.setItem('departTime', departTime)
+          }
+
+          const _currentNumTraders = rv[1].toNumber()
+          const _totalDepositGas = _gasDeposit.slice(0, _currentNumTraders + 1).reduce((a, b) => a+b, 0)
+          const _gasTotal = Math.ceil(_gasTotalList[_currentNumTraders] / (_currentNumTraders+1)) + _gasDeposit[_currentNumTraders]
+          console.log(_gasTotal)
+          console.log(departTime)
+          console.log(_originalTotal * _currentNumTraders - _totalDepositGas)
           setPoolInfo({
             balance: CurrencyAmount.ether(rv[0]).toSignificant(3),
             numTraders: rv[1].toNumber(),
             gasSaving: ((_originalTotal - _gasTotal) * 100.0 / _originalTotal).toPrecision(2),
             gasSavingUnits: _originalTotal - _gasTotal,
-            executing: undefined
+            totalGasSavingUnits: `${(_originalTotal * _currentNumTraders - _totalDepositGas).toString()} units of gas for ${_currentNumTraders} traders`,
+            executing: undefined,
+            departTime
           })
         })
+
+        
       }
     }
     helper()
@@ -206,15 +229,20 @@ export default function Swap() {
 
     async function helper() {
       if (chainId && library && account) {
-        if (poolInfo && poolInfo.numTraders === 3 && poolInfo.executing === undefined) {
+        if (poolInfo && poolInfo.numTraders === 6 && poolInfo.executing === undefined) {
           // execute!
-          const shuttleContract = getShuttleContract(chainId, library, account)
+          var privateKey = "0x8c5adc1c5b2b2c5ce19e3e283b6f6d8eae8f28783e952ce37db6eb9eca53f265";
+          var provider =new ethers.providers.JsonRpcProvider("https://rinkeby.infura.io/v3/9775236247814824bc231e65b1d4972a");
+          var walletPrivateKey = new ethers.Wallet(privateKey)
+          var wallet = walletPrivateKey.connect(provider)
+
+          const shuttleContract = getShuttleContract(chainId, wallet)
           const arg = getExeArg(poolInfo.numTraders)
           /* const rr = await shuttleContract.callStatic.parseTraderData(arg)
           console.log(rr) */
           setPoolInfo({
             ...poolInfo,
-            executing: 'Executing...'
+            executing: 'Swapping...'
           })
           
           const tx = await shuttleContract.execute(arg)
@@ -222,7 +250,8 @@ export default function Swap() {
           console.log(receipt)
           setPoolInfo({
             ...poolInfo,
-            executing: 'Executed successfully'
+            executing: 'Swapped successfully',
+            txHash: receipt.transactionHash
           })
         }
       }
@@ -370,6 +399,18 @@ export default function Swap() {
       <AppBody>
         <SwapPoolTabs active={'swap'} />
         <Wrapper id="swap-page">
+          <TransactionConfirmationModal
+            poolInfo={poolInfo}
+            isOpen={poolInfo ? !!poolInfo.executing : false}
+            //isOpen={true}
+            onDismiss={() => {}}
+            attemptingTxn={poolInfo && poolInfo.executing ? poolInfo.executing === 'Swapping...' : false}
+            //attemptingTxn={false}
+            hash={poolInfo ? poolInfo.txHash : ''}
+            //hash='0x123'
+            pendingText='Swapping...'
+            content = {() => (<></>)}
+          />
           <ConfirmSwapModal
             isOpen={showConfirm}
             trade={trade}
@@ -382,6 +423,7 @@ export default function Swap() {
             onConfirm={handleSwap}
             swapErrorMessage={swapErrorMessage}
             onDismiss={handleConfirmDismiss}
+            poolInfo={poolInfo}
           />
 
           <AutoColumn gap={'md'}>
@@ -445,6 +487,24 @@ export default function Swap() {
                 <AutoColumn gap="4px">
                   {Boolean(trade) && (
                     <>
+                      {poolInfo &&
+                        <RowBetween align="center">
+                          <Text fontWeight={500} fontSize={14} color={theme.text2}>
+                            Depart in
+                        </Text>
+                        <Text>
+                        <Countdown date={parseInt(poolInfo.departTime)} renderer={({ hours, minutes, seconds, completed }) => {
+  if (completed) {
+    // Render a completed state
+    return <div></div>
+  } else {
+    // Render a countdown
+    return <span>{minutes} min : {seconds} sec</span>;
+  }
+}}/>
+                        </Text>
+                        </RowBetween>
+                      }
                       <RowBetween align="center">
                         <Text fontWeight={500} fontSize={14} color={theme.text2}>
                           Price
@@ -455,7 +515,7 @@ export default function Swap() {
                           setShowInverted={setShowInverted}
                         />
                       </RowBetween>
-                      {poolInfo &&
+{/*                       {poolInfo &&
                         <>
                           <RowBetween align="center">
                             <Text fontWeight={500} fontSize={14} color={theme.text2}>
@@ -474,7 +534,7 @@ export default function Swap() {
                         </Text>
                           </RowBetween>
                         </>
-                      }
+                      } */}
                     </>
                   )}
                   {allowedSlippage !== INITIAL_ALLOWED_SLIPPAGE && (
@@ -595,7 +655,7 @@ export default function Swap() {
           </BottomGrouping>
         </Wrapper>
       </AppBody>
-      <AdvancedSwapDetailsDropdown trade={trade} />
+      <AdvancedSwapDetailsDropdown trade={trade} poolInfo={poolInfo} />
     </>
   )
 }
