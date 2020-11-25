@@ -50,6 +50,7 @@ export const NEVER_RELOAD: ListenerOptions = {
 
 // the lowest level call for subscribing to contract data
 function useCallsData(calls: (Call | undefined)[], options?: ListenerOptions): CallResult[] {
+  console.log(calls)
   const { chainId } = useActiveWeb3React()
   const callResults = useSelector<AppState, AppState['multicall']['callResults']>(state => state.multicall.callResults)
   const dispatch = useDispatch<AppDispatch>()
@@ -99,7 +100,7 @@ function useCallsData(calls: (Call | undefined)[], options?: ListenerOptions): C
         if (result?.data && result?.data !== '0x') {
           data = result.data
         }
-
+        console.log(data)
         return { valid: true, data, blockNumber: result?.blockNumber }
       }),
     [callResults, calls, chainId]

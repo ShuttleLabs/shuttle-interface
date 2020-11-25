@@ -4,8 +4,8 @@ import { AddressZero } from '@ethersproject/constants'
 import { JsonRpcSigner, Web3Provider } from '@ethersproject/providers'
 import { BigNumber } from '@ethersproject/bignumber'
 import { abi as IUniswapV2Router02ABI } from '@uniswap/v2-periphery/build/IUniswapV2Router02.json'
-import { networks, abi as ShuttleABI } from '../constants/abis/shuttle.json'
-import { ROUTER_ADDRESS } from '../constants'
+import { abi as ShuttleABI } from '../constants/abis/shuttle.json'
+import { ROUTER_ADDRESS, SHUTTLE_ADDRESS } from '../constants'
 import { ChainId, JSBI, Percent, Token, CurrencyAmount, Currency, ETHER } from 'sdk'
 import { TokenAddressMap } from '../state/lists/hooks'
 
@@ -104,7 +104,7 @@ export function getRouterContract(_: number, library: Web3Provider, account?: st
 }
 
 export function getShuttleContract(_: number, library: Web3Provider | any, account?: string): Contract {
-  return getContract(networks['4']['address'], ShuttleABI, library, account)
+  return getContract(SHUTTLE_ADDRESS, ShuttleABI, library, account)
 }
 
 

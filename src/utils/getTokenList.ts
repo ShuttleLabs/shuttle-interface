@@ -1,9 +1,11 @@
 import { TokenList } from '@uniswap/token-lists'
 import schema from '@uniswap/token-lists/src/tokenlist.schema.json'
 import Ajv from 'ajv'
-import contenthashToUri from './contenthashToUri'
+/* import { Token } from 'sdk' */
+/* import contenthashToUri from './contenthashToUri'
 import { parseENSAddress } from './parseENSAddress'
-import uriToHttp from './uriToHttp'
+import uriToHttp from './uriToHttp' */
+import addressData from '../constants/address.json'
 
 const tokenListValidator = new Ajv({ allErrors: true }).compile(schema)
 
@@ -16,7 +18,7 @@ export default async function getTokenList(
   listUrl: string,
   resolveENSContentHash: (ensName: string) => Promise<string>
 ): Promise<TokenList> {
-  const parsedENS = parseENSAddress(listUrl)
+  /* const parsedENS = parseENSAddress(listUrl)
   let urls: string[]
   if (parsedENS) {
     let contentHashUri
@@ -52,9 +54,37 @@ export default async function getTokenList(
     if (!response.ok) {
       if (isLast) throw new Error(`Failed to download list ${listUrl}`)
       continue
-    }
+    } 
 
     const json = await response.json()
+    */
+
+    const json = {
+      "name": "Shuttle",
+      "logoURI": "https://umaproject.org/assets/images/UMA_square_red_logo_circle.png",
+      "keywords": ["defi", "uma", "yield"],
+      "timestamp": "2020-08-25T01:40:34.305Z",
+      "tokens": [
+        {
+          "chainId": 42,
+          "address": addressData.tokenA,
+          "name": "TokenA",
+          "symbol": "TokenA",
+          "decimals": 18,
+          "logoURI":"https://tokens.1inch.exchange/0x6b175474e89094c44da98b954eedeac495271d0f.png"
+        },
+        {
+          "chainId": 42,
+          "address": addressData.tokenB,
+          "name": "TokenB",
+          "symbol": "TokenB",
+          "decimals": 18,
+          "logoURI":"https://tokens.1inch.exchange/0x6b175474e89094c44da98b954eedeac495271d0f.png"
+        }
+      ],
+      "version": { "major": 0, "minor": 0, "patch": 0 }
+    }
+
     if (!tokenListValidator(json)) {
       const validationErrors: string =
         tokenListValidator.errors?.reduce<string>((memo, error) => {
@@ -64,6 +94,6 @@ export default async function getTokenList(
       throw new Error(`Token list failed validation: ${validationErrors}`)
     }
     return json
-  }
-  throw new Error('Unrecognized list URL protocol.')
+/*   }
+  throw new Error('Unrecognized list URL protocol.') */
 }

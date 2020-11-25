@@ -164,7 +164,7 @@ export default function Swap() {
         const _gasTotalList = [101152, 158412, 177265, 195982, 204748, 223604, 242321]
         const _originalTotal = 110216
 
-        shuttleContract.getPoolInfo().then((rv: any) => {
+        shuttleContract.getPoolInfo(0).then((rv: any) => {
           // set countdown stuff
           let departTime = window.localStorage.getItem('departTime')
           if(!departTime) {

@@ -28,7 +28,7 @@ export function useETHBalances(
         : [],
     [uncheckedAddresses]
   )
-
+  
   const results = useSingleContractMultipleData(
     multicallContract,
     'getEthBalance',
